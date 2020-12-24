@@ -58,6 +58,7 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
   private final ReactApplicationContext reactContext;
   private MediaRecorder mediaRecorder;
   private MediaPlayer mediaPlayer;
+  private MediaPlayer clipPlayer;
 
   private Runnable recorderRunnable;
   private TimerTask mTask;
@@ -199,6 +200,33 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
   @ReactMethod
   public void startPlayer(final String path, final ReadableMap httpHeaders, final Promise promise) {
     DownloadThread dThread;
+
+    if(path.indexOf(".mp4") > -1) {
+      try {
+        if(clipPlayer != null) {            
+          try {
+            clipPlayer.stop();
+            clipPlayer.release();
+            clipPlayer = null;
+          } catch (Exception e) {
+            Log.e(TAG, "stop clip Play exception: " + e.getMessage());
+          }
+        }
+
+        clipPlayer = new MediaPlayer();
+        clipPlayer.setDataSource(path);
+        clipPlayer.prepare();
+        clipPlayer.start();    
+        
+      } catch (Exception e) {
+        Log.e(TAG, "start clip play exception" + e.getMessage());
+        promise.reject("start clip play exception" + e.getMessage());
+        return;
+      }
+      promise.resolve("clip playing.");
+      return;
+    }
+
     if (mediaPlayer != null) {
       Boolean isPaused = !mediaPlayer.isPlaying() && mediaPlayer.getCurrentPosition() > 1;
 
@@ -212,7 +240,7 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
       promise.reject("startPlay", "Player is already running. Stop it first.");
       return;
     } else {
-      mediaPlayer = new MediaPlayer();
+       = new MediaPlayer();mediaPlayer
       dThread = new DownloadThread(mediaPlayer, path, "sdcard/record.opus");
       dThread.start();
     }
@@ -420,7 +448,7 @@ class DownloadThread extends Thread {
     try {
       MPlayer.setDataSource(LocalPath);
       MPlayer.prepare();
-      Log.i("jongkeun", "다운로드 완료");
+      Log.i("hilokal", "download complete!");
     } catch (IOException e) {
       e.printStackTrace();
     }
