@@ -240,7 +240,7 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
       promise.reject("startPlay", "Player is already running. Stop it first.");
       return;
     } else {
-       = new MediaPlayer();mediaPlayer
+      mediaPlayer = new MediaPlayer();
       dThread = new DownloadThread(mediaPlayer, path, "sdcard/record.opus");
       dThread.start();
     }
