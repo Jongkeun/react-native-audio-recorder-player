@@ -217,14 +217,15 @@ class AudioRecorderPlayer {
       uri = "DEFAULT";
     }
     if (!this._isPlaying || this._hasPaused) {
-      if (uri.indexOf(".mp4") < 0) {
-        this._isPlaying = true;
-        this._hasPaused = false;
-      }
       if (Platform.OS === "android") {
+        if (uri.indexOf(".mp4") < 0) {
+          this._isPlaying = true;
+          this._hasPaused = false;
+        }
         return RNAudioRecorderPlayer.startPlayer(uri, httpHeaders);
       }
-
+      this._isPlaying = true;
+      this._hasPaused = false;
       return RNAudioRecorderPlayer.startPlayer(uri);
     }
   };
