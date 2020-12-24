@@ -33,12 +33,19 @@ import com.facebook.react.modules.core.PermissionListener;
 import org.json.JSONException;
 
 import java.io.IOException;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
-
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
+import javax.net.ssl.HttpsURLConnection;
 
 public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule implements PermissionListener{
   final private static String TAG = "RNAudioRecorderPlayer";
@@ -71,15 +78,15 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
   public void startRecorder(final String path, final Boolean meteringEnabled, final ReadableMap audioSet, Promise promise) {
     try {
       if (
-          Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
-              (
-                  ActivityCompat.checkSelfPermission(reactContext, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED &&
-                  ActivityCompat.checkSelfPermission(reactContext, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
-              )
-          ) {
+              Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+                      (
+                              ActivityCompat.checkSelfPermission(reactContext, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED &&
+                                      ActivityCompat.checkSelfPermission(reactContext, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+                      )
+      ) {
         ActivityCompat.requestPermissions(getCurrentActivity(), new String[]{
-            Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                Manifest.permission.RECORD_AUDIO,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE,
         }, 0);
         promise.reject("No permission granted.", "Try again after adding permission.");
         return;
@@ -99,15 +106,15 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
 
     if (audioSet != null) {
       mediaRecorder.setAudioSource(audioSet.hasKey("AudioSourceAndroid")
-        ? audioSet.getInt("AudioSourceAndroid") : MediaRecorder.AudioSource.MIC);
+              ? audioSet.getInt("AudioSourceAndroid") : MediaRecorder.AudioSource.MIC);
       mediaRecorder.setOutputFormat(audioSet.hasKey("OutputFormatAndroid")
-        ? audioSet.getInt("OutputFormatAndroid") : MediaRecorder.OutputFormat.MPEG_4);
+              ? audioSet.getInt("OutputFormatAndroid") : MediaRecorder.OutputFormat.MPEG_4);
       mediaRecorder.setAudioEncoder(audioSet.hasKey("AudioEncoderAndroid")
-        ? audioSet.getInt("AudioEncoderAndroid") : MediaRecorder.AudioEncoder.AAC);
+              ? audioSet.getInt("AudioEncoderAndroid") : MediaRecorder.AudioEncoder.AAC);
       mediaRecorder.setAudioSamplingRate(audioSet.hasKey("AudioSamplingRateAndroid")
-        ? audioSet.getInt("AudioSamplingRateAndroid") : 48000);
+              ? audioSet.getInt("AudioSamplingRateAndroid") : 48000);
       mediaRecorder.setAudioEncodingBitRate(audioSet.hasKey("AudioEncodingBitRateAndroid")
-        ? audioSet.getInt("AudioEncodingBitRateAndroid") : 128000);
+              ? audioSet.getInt("AudioEncodingBitRateAndroid") : 128000);
     } else {
       mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
       mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
@@ -191,6 +198,7 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
 
   @ReactMethod
   public void startPlayer(final String path, final ReadableMap httpHeaders, final Promise promise) {
+    DownloadThread dThread;
     if (mediaPlayer != null) {
       Boolean isPaused = !mediaPlayer.isPlaying() && mediaPlayer.getCurrentPosition() > 1;
 
@@ -205,24 +213,10 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
       return;
     } else {
       mediaPlayer = new MediaPlayer();
+      dThread = new DownloadThread(mediaPlayer, path, "sdcard/record.opus");
+      dThread.start();
     }
     try {
-      if (path.equals("DEFAULT")) {
-        mediaPlayer.setDataSource(FILE_LOCATION);
-      } else {
-        if (httpHeaders != null) {
-          Map headers = new HashMap();
-          ReadableMapKeySetIterator iterator = httpHeaders.keySetIterator();
-          while (iterator.hasNextKey()) {
-            String key = iterator.nextKey();
-            headers.put(key, httpHeaders.getString(key));
-          }
-
-          mediaPlayer.setDataSource(getCurrentActivity().getApplicationContext(), Uri.parse(path), headers);
-        } else {
-          mediaPlayer.setDataSource(path);
-        }
-      }
       mediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
         @Override
         public void onPrepared(final MediaPlayer mp) {
@@ -273,12 +267,10 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
           mediaPlayer = null;
         }
       });
-      mediaPlayer.prepare();
-    } catch (IOException e) {
+      //mediaPlayer.prepare();
+    } catch (Exception e) {
       Log.e(TAG, "startPlay() io exception");
       promise.reject("startPlay", e.getMessage());
-    } catch (NullPointerException e) {
-      Log.e(TAG, "startPlay() null exception");
     }
   }
 
@@ -338,8 +330,8 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
                          String eventName,
                          @Nullable WritableMap params) {
     reactContext
-        .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-        .emit(eventName, params);
+            .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+            .emit(eventName, params);
   }
 
   @ReactMethod
@@ -379,5 +371,58 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
         break;
     }
     return false;
+  }
+}
+
+class DownloadThread extends Thread {
+  MediaPlayer MPlayer;
+  String ServerUrl;
+  String LocalPath;
+
+  DownloadThread(MediaPlayer mPlayer, String serverPath, String localPath) {
+    MPlayer = mPlayer;
+    ServerUrl = serverPath;
+    LocalPath = localPath;
+  }
+
+  @Override
+  public void run() {
+    URL imgurl;
+    int Read;
+    try {
+      imgurl = new URL(ServerUrl);
+      HttpsURLConnection conn = (HttpsURLConnection) imgurl
+              .openConnection();
+      int len = conn.getContentLength();
+      byte[] tmpByte = new byte[len];
+      InputStream is = conn.getInputStream();
+      File file = new File(LocalPath);
+      file.createNewFile();
+      FileOutputStream fos = new FileOutputStream(file, false);
+      for (;;) {
+        Read = is.read(tmpByte);
+        if (Read <= 0) {
+          break;
+        }
+        fos.write(tmpByte, 0, Read);
+      }
+      is.close();
+      fos.close();
+      conn.disconnect();
+
+    } catch (MalformedURLException e) {
+      Log.e("ERROR1", e.getMessage());
+    } catch (IOException e) {
+      Log.e("ERROR2", e.getMessage());
+      e.printStackTrace();
+    }
+    //mAfterDown.sendEmptyMessage(0);
+    try {
+      MPlayer.setDataSource(LocalPath);
+      MPlayer.prepare();
+      Log.i("jongkeun", "다운로드 완료");
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
   }
 }
