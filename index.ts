@@ -96,12 +96,11 @@ const pad = (num: number): string => {
 };
 
 class AudioRecorderPlayer {
-  private _isRecording: boolean;
-  private _isPlaying: boolean;
-  private _hasPaused: boolean;
-  private _recorderSubscription: EmitterSubscription;
-  private _playerSubscription: EmitterSubscription;
-  private _recordInterval: number;
+  private _isRecording: boolean = false;
+  private _isPlaying: boolean = false;
+  private _hasPaused: boolean = false;
+  private _recorderSubscription: EmitterSubscription | null = null;
+  private _playerSubscription: EmitterSubscription | null = null;
 
   mmss = (secs: number): string => {
     let minutes = Math.floor(secs / 60);
@@ -124,7 +123,7 @@ class AudioRecorderPlayer {
    * set listerner from native module for recorder.
    * @returns {callBack(e: any)}
    */
-  addRecordBackListener = (e): void => {
+  addRecordBackListener = (e: any): void => {
     if (Platform.OS === "android") {
       this._recorderSubscription = DeviceEventEmitter.addListener("rn-recordback", e);
     } else {
@@ -148,7 +147,7 @@ class AudioRecorderPlayer {
    * set listener from native module for player.
    * @returns {callBack(e: Event)}
    */
-  addPlayBackListener = (e): void => {
+  addPlayBackListener = (e: any): void => {
     if (Platform.OS === "android") {
       this._playerSubscription = DeviceEventEmitter.addListener("rn-playback", e);
     } else {
@@ -228,6 +227,7 @@ class AudioRecorderPlayer {
       this._hasPaused = false;
       return RNAudioRecorderPlayer.startPlayer(uri);
     }
+    return "fail";
   };
 
   /**
@@ -253,6 +253,7 @@ class AudioRecorderPlayer {
       this._hasPaused = true;
       return RNAudioRecorderPlayer.pausePlayer();
     }
+    return "fail";
   };
 
   /**
