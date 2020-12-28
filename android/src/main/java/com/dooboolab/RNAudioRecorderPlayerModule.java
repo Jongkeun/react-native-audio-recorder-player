@@ -48,7 +48,7 @@ import javax.annotation.Nullable;
 import javax.net.ssl.HttpsURLConnection;
 
 public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule implements PermissionListener{
-  final private static String TAG = "HILOKAL";
+  final private static String TAG = "RNAudioRecorderPlayer";
   final private static String FILE_LOCATION = "sdcard/sound.mp4";
   private String audioFileURL = "";
 
@@ -404,7 +404,7 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
 }
 
 class DownloadThread implements Runnable {
-  String TAG = "HILOKAL";
+  String TAG = "RNAudioRecorderPlayer";
   MediaPlayer MPlayer;
   String ServerUrl;
   String LocalPath;
