@@ -437,6 +437,7 @@ class DownloadThread implements Runnable {
           break;
         }
         fos.write(tmpByte, 0, Read);
+        Thread.sleep(5);
         if (done) {
           break;
         }
