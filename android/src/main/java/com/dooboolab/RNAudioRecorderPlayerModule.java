@@ -404,6 +404,7 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
 }
 
 class DownloadThread implements Runnable {
+  String TAG = "HILOKAL";
   MediaPlayer MPlayer;
   String ServerUrl;
   String LocalPath;
