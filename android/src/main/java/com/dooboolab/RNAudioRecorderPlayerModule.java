@@ -48,7 +48,7 @@ import javax.annotation.Nullable;
 import javax.net.ssl.HttpsURLConnection;
 
 public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule implements PermissionListener{
-  final private static String TAG = "RNAudioRecorderPlayer";
+  final private static String TAG = "HILOKAL";
   final private static String FILE_LOCATION = "sdcard/sound.mp4";
   private String audioFileURL = "";
 
@@ -59,6 +59,7 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
   private MediaRecorder mediaRecorder;
   private MediaPlayer mediaPlayer;
   private MediaPlayer clipPlayer;
+  private DownloadThread dThread;
 
   private Runnable recorderRunnable;
   private TimerTask mTask;
@@ -199,8 +200,6 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
 
   @ReactMethod
   public void startPlayer(final String path, final ReadableMap httpHeaders, final Promise promise) {
-    DownloadThread dThread;
-
     if(path.indexOf(".mp4") > -1) {
       try {
         if(clipPlayer != null) {            
@@ -242,7 +241,8 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
     } else {
       mediaPlayer = new MediaPlayer();
       dThread = new DownloadThread(mediaPlayer, path, "sdcard/record.opus");
-      dThread.start();
+      Thread thread = new Thread(dThread);
+      thread.start();
     }
     try {
       mediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
@@ -376,6 +376,7 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
     try {
       mediaPlayer.release();
       mediaPlayer = null;
+      dThread.shutdown();
       promise.resolve("stopped player");
     } catch (Exception e) {
       Log.e(TAG, "stopPlay exception: " + e.getMessage());
@@ -402,19 +403,23 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
   }
 }
 
-class DownloadThread extends Thread {
+class DownloadThread implements Runnable {
   MediaPlayer MPlayer;
   String ServerUrl;
   String LocalPath;
+  private volatile boolean done = false;
 
   DownloadThread(MediaPlayer mPlayer, String serverPath, String localPath) {
     MPlayer = mPlayer;
     ServerUrl = serverPath;
     LocalPath = localPath;
   }
+  public void shutdown() {
+    done = true;
+  }
 
   @Override
-  public void run() {
+  public synchronized void run() {
     URL imgurl;
     int Read;
     try {
@@ -425,30 +430,35 @@ class DownloadThread extends Thread {
       File file = new File(LocalPath);
       file.createNewFile();
       FileOutputStream fos = new FileOutputStream(file, false);
-      for (;;) {
+      for(;;) {
         Read = is.read(tmpByte);
         if (Read <= 0) {
           break;
         }
         fos.write(tmpByte, 0, Read);
+        if (done) {
+          break;
+        }
       }
       is.close();
       fos.close();
       conn.disconnect();
 
     } catch (MalformedURLException e) {
-      Log.e("ERROR1", e.getMessage());
-    } catch (IOException e) {
-      Log.e("ERROR2", e.getMessage());
+      Log.e(TAG, e.getMessage());
+    } catch (Exception e) {
+      Log.e(TAG, e.getMessage());
       e.printStackTrace();
     }
     //mAfterDown.sendEmptyMessage(0);
     try {
       MPlayer.setDataSource(LocalPath);
       MPlayer.prepare();
-      Log.i("hilokal", "download complete!");
-    } catch (IOException e) {
-      e.printStackTrace();
+      Log.i(TAG, "download complete!");
+    } catch(Exception e) {
+      Log.e(TAG, "stop thread exception: " + e.toString());
+    } catch(Error e2) {
+      Log.e(TAG, "stop thread error: " + e2.toString());
     }
   }
 }
