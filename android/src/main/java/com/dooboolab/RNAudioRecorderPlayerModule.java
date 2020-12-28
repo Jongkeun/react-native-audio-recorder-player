@@ -419,10 +419,8 @@ class DownloadThread extends Thread {
     int Read;
     try {
       imgurl = new URL(ServerUrl);
-      HttpsURLConnection conn = (HttpsURLConnection) imgurl
-              .openConnection();
-      int len = conn.getContentLength();
-      byte[] tmpByte = new byte[len];
+      HttpsURLConnection conn = (HttpsURLConnection) imgurl.openConnection();
+      byte[] tmpByte = new byte[8192];
       InputStream is = conn.getInputStream();
       File file = new File(LocalPath);
       file.createNewFile();
