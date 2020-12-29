@@ -59,7 +59,6 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
   private MediaRecorder mediaRecorder;
   private MediaPlayer mediaPlayer;
   private MediaPlayer clipPlayer;
-  private DownloadThread dThread;
 
   private Runnable recorderRunnable;
   private TimerTask mTask;
@@ -199,33 +198,33 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
   }
 
   @ReactMethod
-  public void startPlayer(final String path, final ReadableMap httpHeaders, final Promise promise) {
-    if(path.indexOf(".mp4") > -1) {
-      try {
-        if(clipPlayer != null) {            
-          try {
-            clipPlayer.stop();
-            clipPlayer.release();
-            clipPlayer = null;
-          } catch (Exception e) {
-            Log.e(TAG, "stop clip Play exception: " + e.getMessage());
-          }
+  public void startClip(final String path, final Promise promise) {
+    try {
+      if(clipPlayer != null) {            
+        try {
+          clipPlayer.stop();
+          clipPlayer.release();
+          clipPlayer = null;
+        } catch (Exception e) {
+          Log.e(TAG, "stop clip Play exception: " + e.getMessage());
         }
-
-        clipPlayer = new MediaPlayer();
-        clipPlayer.setDataSource(path);
-        clipPlayer.prepare();
-        clipPlayer.start();    
-        
-      } catch (Exception e) {
-        Log.e(TAG, "start clip play exception" + e.getMessage());
-        promise.reject("start clip play exception" + e.getMessage());
-        return;
       }
-      promise.resolve("clip playing.");
+
+      clipPlayer = new MediaPlayer();
+      clipPlayer.setDataSource(path);
+      clipPlayer.prepare();
+      clipPlayer.start();    
+      
+    } catch (Exception e) {
+      Log.e(TAG, "start clip play exception" + e.getMessage());
+      promise.reject("start clip play exception" + e.getMessage());
       return;
     }
+    promise.resolve("clip playing.");
+  }
 
+  @ReactMethod
+  public void startPlayer(final String path, final ReadableMap httpHeaders, final Promise promise) {    
     if (mediaPlayer != null) {
       Boolean isPaused = !mediaPlayer.isPlaying() && mediaPlayer.getCurrentPosition() > 1;
 
@@ -238,13 +237,12 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
       Log.e(TAG, "Player is already running. Stop it first.");
       promise.reject("startPlay", "Player is already running. Stop it first.");
       return;
-    } else {
-      mediaPlayer = new MediaPlayer();
-      dThread = new DownloadThread(mediaPlayer, path, "sdcard/record.opus");
-      Thread thread = new Thread(dThread);
-      thread.start();
     }
+
     try {
+      mediaPlayer = new MediaPlayer();
+      mediaPlayer.setDataSource(path);
+
       mediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
         @Override
         public void onPrepared(final MediaPlayer mp) {
@@ -295,7 +293,7 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
           mediaPlayer = null;
         }
       });
-      //mediaPlayer.prepare();
+      mediaPlayer.prepare();
     } catch (Exception e) {
       Log.e(TAG, "startPlay() io exception");
       promise.reject("startPlay", e.getMessage());
@@ -376,7 +374,6 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
     try {
       mediaPlayer.release();
       mediaPlayer = null;
-      dThread.shutdown();
       promise.resolve("stopped player");
     } catch (Exception e) {
       Log.e(TAG, "stopPlay exception: " + e.getMessage());
@@ -400,67 +397,5 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
         break;
     }
     return false;
-  }
-}
-
-class DownloadThread implements Runnable {
-  String TAG = "RNAudioRecorderPlayer";
-  MediaPlayer MPlayer;
-  String ServerUrl;
-  String LocalPath;
-  private volatile boolean done = false;
-
-  DownloadThread(MediaPlayer mPlayer, String serverPath, String localPath) {
-    MPlayer = mPlayer;
-    ServerUrl = serverPath;
-    LocalPath = localPath;
-  }
-  public void shutdown() {
-    done = true;
-  }
-
-  @Override
-  public synchronized void run() {
-    URL imgurl;
-    int Read;
-    try {
-      imgurl = new URL(ServerUrl);
-      HttpsURLConnection conn = (HttpsURLConnection) imgurl.openConnection();
-      byte[] tmpByte = new byte[8192];
-      InputStream is = conn.getInputStream();
-      File file = new File(LocalPath);
-      file.createNewFile();
-      FileOutputStream fos = new FileOutputStream(file, false);
-      for(;;) {
-        Read = is.read(tmpByte);
-        if (Read <= 0) {
-          break;
-        }
-        fos.write(tmpByte, 0, Read);
-        Thread.sleep(5);
-        if (done) {
-          break;
-        }
-      }
-      is.close();
-      fos.close();
-      conn.disconnect();
-
-    } catch (MalformedURLException e) {
-      Log.e(TAG, e.getMessage());
-    } catch (Exception e) {
-      Log.e(TAG, e.getMessage());
-      e.printStackTrace();
-    }
-    //mAfterDown.sendEmptyMessage(0);
-    try {
-      MPlayer.setDataSource(LocalPath);
-      MPlayer.prepare();
-      Log.i(TAG, "download complete!");
-    } catch(Exception e) {
-      Log.e(TAG, "stop thread exception: " + e.toString());
-    } catch(Error e2) {
-      Log.e(TAG, "stop thread error: " + e2.toString());
-    }
   }
 }

@@ -216,15 +216,11 @@ class AudioRecorderPlayer {
       uri = "DEFAULT";
     }
     if (!this._isPlaying || this._hasPaused) {
-      if (Platform.OS === "android") {
-        if (uri.indexOf(".mp4") < 0) {
-          this._isPlaying = true;
-          this._hasPaused = false;
-        }
-        return RNAudioRecorderPlayer.startPlayer(uri, httpHeaders);
-      }
       this._isPlaying = true;
       this._hasPaused = false;
+      if (Platform.OS === "android") {
+        return RNAudioRecorderPlayer.startPlayer(uri, httpHeaders);
+      }
       return RNAudioRecorderPlayer.startPlayer(uri);
     }
     return "fail";
@@ -287,6 +283,21 @@ class AudioRecorderPlayer {
    */
   setSubscriptionDuration = async (sec: number): Promise<string> => {
     return RNAudioRecorderPlayer.setSubscriptionDuration(sec);
+  };
+
+  /**
+   * start clip
+   * @param {string} uri audio uri.
+   * @returns {Promise<string>}
+   */
+  startClip = async (uri?: string): Promise<string> => {
+    if (!uri) {
+      return "empty uri";
+    }
+    if (Platform.OS === "android") {
+      return RNAudioRecorderPlayer.startClip(uri);
+    }
+    return "fail";
   };
 }
 
