@@ -212,6 +212,26 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
 
       clipPlayer = new MediaPlayer();
       clipPlayer.setDataSource(path);
+      clipPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+        @Override
+        public void onCompletion(MediaPlayer mp) {
+          /**
+           * Send last event
+           */
+          WritableMap obj = Arguments.createMap();
+          obj.putInt("duration", mp.getDuration());
+          obj.putInt("current_position", mp.getDuration());
+          sendEvent(reactContext, "rn-playback", obj);
+
+          /**
+           * Reset player.
+           */
+          Log.d(TAG, "Plays completed.");
+          mp.stop();
+          mp.release();
+          clipPlayer = null;
+        }
+      });
       clipPlayer.prepare();
       clipPlayer.start();    
       
@@ -372,6 +392,7 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
     }
 
     try {
+      mediaPlayer.stop();
       mediaPlayer.release();
       mediaPlayer = null;
       promise.resolve("stopped player");
@@ -398,4 +419,47 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
     }
     return false;
   }
+
+  @ReactMethod
+  public void stopClip(Promise promise) {
+    if (clipPlayer == null) {
+      promise.resolve("stoplip already stopped");
+      return;
+    }
+
+    try {
+      clipPlayer.stop();
+      clipPlayer.release();
+      promise.resolve("stoplip clip");
+    } catch (Exception e) {
+      Log.e(TAG, "stoplip exception: " + e.getMessage());
+      promise.reject("stoplip",e.getMessage());
+    }
+  }
+
+  @ReactMethod
+  public void deleteClipFile(final String path, final Promise promise) {
+    if (clipPlayer != null) {
+      try{
+        clipPlayer.stop();
+        clipPlayer.release();
+      } catch (Exception e) {
+        Log.e(TAG, "deleteClipFile exception: " + e.getMessage());
+        promise.reject("deleteClipFile",e.getMessage());
+      }
+    }
+
+    try {      
+      File deleteFile = new File(path);
+      if(deleteFile.exists()) {
+        deleteFile.delete(); 
+      }        
+    } catch (Exception e) {
+      Log.e(TAG, "deleteClipFile exception" + e.getMessage());
+      promise.reject("deleteClipFile exception" + e.getMessage());
+      return;
+    }
+    promise.resolve("deleteClipFile");
+  }
+  
 }

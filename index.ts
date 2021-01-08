@@ -299,6 +299,23 @@ class AudioRecorderPlayer {
     }
     return "fail";
   };
+
+  stopClip = async (): Promise<string> => {
+    if (Platform.OS === "android") {
+      return RNAudioRecorderPlayer.stopClip();
+    }
+    return "fail";
+  };
+
+  deleteClipFile = async (uri?: string): Promise<string> => {
+    if (!uri) {
+      return "empty uri";
+    }
+    if (Platform.OS === "android") {
+      return RNAudioRecorderPlayer.deleteClipFile(uri);
+    }
+    return "fail";
+  };
 }
 
 export default AudioRecorderPlayer;
